@@ -13,6 +13,7 @@ import scala.math._
 object App {
 
   def main(args : Array[String]) {
+    //Se procesa la columna 1 con 3 centroides
     processKmeans(1,3)
   }
 
