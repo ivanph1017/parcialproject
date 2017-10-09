@@ -9,24 +9,24 @@ import scala.math._
 import ulima.edu.pe.facilito._
 
 object KmeansByOneColumn {
-  
+
   //Procesar algoritmo K-means
   def processKmeans(column: Integer, centroidNumber: Integer) {
     //Arreglo con los valores de los centroides
-    val dataAvgArray = ArrayBuffer[Float]()
+    var dataAvgArray = ArrayBuffer[Float]()
     //Dataset de 1 columna como RDD
-    val datasetRDD = GetDataset.getDatasetXColumn( column )
+    var datasetRDD = GetDataset.getDatasetXColumn( column )
     //Dataset de 1 columna como Array
-    val datasetArray = datasetRDD.collect()
+    var datasetArray = datasetRDD.collect()
     //Ordenar datasetArray
-    val datasetArraySorted = datasetRDD
+    var datasetArraySorted = datasetRDD
     .sortBy( x => x, ascending = true )
     .collect()
     /*
     Se calcula el tamano de cada seccion a partir del datasetArraySorted
     dividido por el numero de centroides
     */
-    val section = datasetArraySorted.length./( centroidNumber )
+    var section = datasetArraySorted.length./( centroidNumber )
     /*
     A los centroides se les asigna el punto de quiebre
     entre seccion y seccion
@@ -35,11 +35,11 @@ object KmeansByOneColumn {
       dataAvgArray.append( datasetArraySorted( i.+( section./( 2 ) ) ) )
 
     /*
-    Se mapea cada elemento ( x ) => ( Valor del centroide al cual pertenece,
+    Se mapea cada elemento ( x ) => ( valor del centroide al cual pertenece,
     valor x )
     */
-    val initRDD = datasetRDD.map( x => {
-      val minDistance =
+    var initRDD = datasetRDD.map( x => {
+      var minDistance =
         getMinDistance( dataAvgArray.toArray, dataAvgArray.length.-( 1 ), x )
       ( minDistance._1, x)
     })
@@ -52,7 +52,7 @@ object KmeansByOneColumn {
     (centroide, valuesList) =>
     (Nuevo promedio de la lista del centroide, lista)
     */
-    .map( kv => ( kv._2.sum / kv._2.length,  kv._2 ) )
+    .map( kv => ( kv._2.sum./( kv._2.length ),  kv._2 ) )
 
     /*
     Se chequea si los valores de los centroides
@@ -60,7 +60,7 @@ object KmeansByOneColumn {
     a cadena de texto y se exporta
     */
     checkAvg( initRDD, dataAvgArray.toArray ).map( myTuple => {
-        val cad = StringBuilder.newBuilder
+        var cad = StringBuilder.newBuilder
         cad.append( myTuple._1.toString )
         myTuple._2.foreach( value => cad.append( "," ).append( value.toString ) )
         cad
@@ -82,7 +82,7 @@ object KmeansByOneColumn {
     Se filtran si los centroides son los mismos que de la iteracion pasada
     al comparar el valor Float del RDD1 con el valor Float del RDD2
     */
-    val matchesCount = rdd.cartesian(MySparkContext.getSparkContext()
+    var matchesCount = rdd.cartesian(MySparkContext.getSparkContext()
     .parallelize( dataAvgArray ) )
     .filter( pair => pair._1._1 == pair._2 ).collect()
 
@@ -91,8 +91,8 @@ object KmeansByOneColumn {
     valores del Array de centroides, se sigue iterando
     */
     if( matchesCount.length != dataAvgArray.length ) {
-      val rddReAssign = assign( rdd )
-      val newCentroids = rddReAssign.map( x => x._1 ).collect()
+      var rddReAssign = assign( rdd )
+      var newCentroids = rddReAssign.map( x => x._1 ).collect()
       checkAvg( rddReAssign, newCentroids )
     } else {
       rdd
@@ -103,20 +103,20 @@ object KmeansByOneColumn {
   def assign(rdd : RDD[Tuple2[Float, List[Float]]])
   : RDD[Tuple2[Float, List[Float]]] = {
     // Se obtiene los centroides previos como un Array
-    val previousCentroids = rdd.map( x => x._1 ).collect()
+    var previousCentroids = rdd.map( x => x._1 ).collect()
     /*
     Se hace flatMapping de cada elemento ( myTuple ) =>
-    ( Valor del centroide al que pertenece,
+    ( valor del centroide al que pertenece,
     valor de cada elemento de la lista )
     */
     rdd.flatMap( myTuple =>
       for (value <- myTuple._2) yield ( myTuple._1, value ) )
     /*
-    Se mapea cada elemento ( x ) => ( Valor del nuevo centroide al
+    Se mapea cada elemento ( x ) => ( valor del nuevo centroide al
     cual pertenece, valor x )
     */
     .map( x => {
-      val minDistance = getMinDistance( previousCentroids,
+      var minDistance = getMinDistance( previousCentroids,
         previousCentroids.length.-( 1 ), x._2 )
       ( minDistance._1, x._2 )
     })
@@ -129,7 +129,7 @@ object KmeansByOneColumn {
     (centroide, valuesList) =>
     (Nuevo promedio de la lista del centroide, lista)
     */
-    .map( kv => ( kv._2.sum / kv._2.length,  kv._2 ) )
+    .map( kv => ( kv._2.sum./( kv._2.length ),  kv._2 ) )
   }
 
   //Se obtiene el centroide mas cercano y su distancia de forma recursiva
@@ -137,15 +137,15 @@ object KmeansByOneColumn {
   Tuple2[Float, Float] = {
     if( n > 0 ) {
       /*
-      Valor de la tuple2[Float, Float] de la
+      valor de la tuple2[Float, Float] de la
       distancia mínima de la posicion anterior del Array
       */
-      val previousDistance = getMinDistance( arr, n - 1 , x)
+      var previousDistance = getMinDistance( arr, n - 1 , x)
       /*
-      Valor absoluto de la distancia al centroide
+      valor absoluto de la distancia al centroide
       del Array en la posicion n
       */
-      val currentDistance = abs( x - arr( n ) )
+      var currentDistance = abs( x.-( arr( n ) ) )
       /*
       Si la distancia anterior es menor, se retorna
       ( valor del centroide de la posicion anterior del Array,
@@ -169,7 +169,7 @@ object KmeansByOneColumn {
         distancia al centroide de la posicion 0 del Array
         en valor absoluto )
         */
-        ( arr( 0 ), abs( x - arr( 0 ) ) )
+        ( arr( 0 ), abs( x.-( arr( 0 ) ) ) )
     }
   }
 }

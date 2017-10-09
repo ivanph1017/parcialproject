@@ -3,11 +3,13 @@ package ulima.edu.pe.facilito
 import org.apache.spark.SparkConf
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.ListBuffer
 
 import ulima.edu.pe.facilito._
 
 object GetDataset {
+
+  var columnsNumber : Int = 0
 
   //Obtener RDD file
   def getFile() : RDD[String] =
@@ -22,13 +24,18 @@ object GetDataset {
     getRows().map( x => x( column ).toFloat )
 
   //Obtener dataset de todas las columnas como Array de Float
-  def getAllDataset() : RDD[Array[Double]] =
+  def getAllDataset() : RDD[List[Double]] =
     getRows().map( stringArray => {
-      val floatArray = ArrayBuffer[Double]()
-      stringArray.foreach(str => floatArray.append( str.toDouble ) )
-      floatArray.toArray
+      val valueList = ListBuffer[Double]()
+      stringArray.foreach(str => valueList.append( str.toDouble ) )
+      valueList.toList
     } )
 
-  def getColumnsNumber() : Int = getRows().take(1).length
+  def getColumnsNumber() : Int = {
+    if( columnsNumber == 0 ) {
+      this.columnsNumber = getRows().first().length
+    }
+    this.columnsNumber
+  }
 
 }
