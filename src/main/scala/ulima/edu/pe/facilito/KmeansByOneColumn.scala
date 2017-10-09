@@ -12,47 +12,30 @@ object KmeansByOneColumn {
 
   //Procesar algoritmo K-means
   def processKmeans(column: Integer, centroidNumber: Integer) {
-    //Arreglo con los valores de los centroides
-    var dataAvgArray = ArrayBuffer[Float]()
     //Dataset de 1 columna como RDD
     var datasetRDD = GetDataset.getDatasetXColumn( column )
+
     //Dataset de 1 columna como Array
     var datasetArray = datasetRDD.collect()
-    //Ordenar datasetArray
-    var datasetArraySorted = datasetRDD
-    .sortBy( x => x, ascending = true )
-    .collect()
+
     /*
     Se calcula el tamano de cada seccion a partir del datasetArraySorted
     dividido por el numero de centroides
     */
-    var section = datasetArraySorted.length./( centroidNumber )
-    /*
-    A los centroides se les asigna el punto de quiebre
-    entre seccion y seccion
-    */
-    for( i <- 0 to datasetArraySorted.length.-( section ) by section )
-      dataAvgArray.append( datasetArraySorted( i.+( section./( 2 ) ) ) )
+    var section = datasetArray.length./( centroidNumber )
 
-    /*
-    Se mapea cada elemento ( x ) => ( valor del centroide al cual pertenece,
-    valor x )
-    */
-    var initRDD = datasetRDD.map( x => {
-      var minDistance =
-        getMinDistance( dataAvgArray.toArray, dataAvgArray.length.-( 1 ), x )
-      ( minDistance._1, x)
-    })
-    //Se agrupa por los valor del centroide
-    .groupByKey
-    //Se mapea los valores pertenientes al centroide como lista
-    .mapValues( _.toList )
-    /*
-    Se crean nuevos centroides:
-    (centroide, valuesList) =>
-    (Nuevo promedio de la lista del centroide, lista)
-    */
-    .map( kv => ( kv._2.sum./( kv._2.length ),  kv._2 ) )
+    //Ordenar datasetArray
+    var datasetArraySorted = datasetRDD
+    .sortBy( x => x, ascending = true )
+    .collect()
+
+    //Arreglo con los valores de los centroides
+    var dataAvgArray = addBreakPointAsCentroid( ArrayBuffer[Float](),
+      datasetArraySorted, datasetArray.length.-( section ), section )
+
+    //Se crean nuevos centroides
+    var initRDD = createNewCentroids( mapToCentroid( datasetRDD,
+      dataAvgArray.toArray ) )
 
     /*
     Se chequea si los valores de los centroides
@@ -61,12 +44,39 @@ object KmeansByOneColumn {
     */
     checkAvg( initRDD, dataAvgArray.toArray ).map( myTuple => {
         var cad = StringBuilder.newBuilder
-        cad.append( myTuple._1.toString )
+        cad.append( myTuple._1.toString ).append( "," )
         cad.append( myTuple._2.mkString( "," ) )
         cad
       } )
       .saveAsTextFile("data/resultado1/")
   }
+
+  //Se crean los centroides a partir de los break points
+  def addBreakPointAsCentroid(arr : ArrayBuffer[Float],
+    arrSorted : Array[Float], n : Int, section : Int) : ArrayBuffer[Float] = {
+    if( n > 0 ) {
+      var previousArray =
+        addBreakPointAsCentroid(arr, arrSorted, n - section, section)
+      previousArray.append( arrSorted( n.+( section./( 2 ) ) ) )
+      previousArray
+    } else {
+      arr.append( arrSorted( 0.+( section./( 2 ) ) ) )
+      arr
+    }
+  }
+
+  /*
+  Se mapea cada elemento ( x ) => ( valor del centroide al cual pertenece,
+  valor x )
+  */
+  def mapToCentroid( rdd : RDD[Float], dataAvgArray : Array[Float] )
+  : RDD[Tuple2[Float, Float]] =
+    rdd.map( x => {
+      var minDistance =
+        getMinDistance( dataAvgArray, dataAvgArray.length.-( 1 ), x )
+      ( minDistance._1, x)
+    })
+
   /*
   Se chequea si los valores de los centroides
   son los mismos que de la iteracion anterior de forma recursiva
@@ -91,18 +101,21 @@ object KmeansByOneColumn {
     valores del Array de centroides, se sigue iterando
     */
     if( matchesCount.length != dataAvgArray.length ) {
-      var rddAssign = assign( rdd )
+      var newRDD = createNewCentroids( reMapToCentroid( rdd ) )
       var previousCentroids = rdd
         .map( x => x._1 ).collect()
-      checkAvg( rddAssign, previousCentroids )
+      checkAvg( newRDD, previousCentroids )
     } else {
       rdd
     }
   }
 
-  //Se reasigna
-  def assign(rdd : RDD[Tuple2[Float, List[Float]]])
-  : RDD[Tuple2[Float, List[Float]]] = {
+  /*
+  Se mapea cada elemento ( x ) => ( valor del centroide al cual pertenece,
+  valor x )
+  */
+  def reMapToCentroid(rdd : RDD[Tuple2[Float, List[Float]]])
+  : RDD[Tuple2[Float, Float]] = {
     // Se obtiene los centroides previos como un Array
     var previousCentroids = rdd.map( x => x._1 ).collect()
     /*
@@ -121,6 +134,12 @@ object KmeansByOneColumn {
         previousCentroids.length.-( 1 ), x._2 )
       ( minDistance._1, x._2 )
     })
+  }
+
+  //Se agrupa
+  def createNewCentroids( rdd : RDD[Tuple2[Float, Float]] ) :
+  RDD[Tuple2[Float, List[Float]]] =
+    rdd
     //Se agrupa por los valor del centroide
     .groupByKey
     //Se mapea los valores pertenientes al centroide como lista
@@ -131,7 +150,6 @@ object KmeansByOneColumn {
     (Nuevo promedio de la lista del centroide, lista)
     */
     .map( kv => ( kv._2.sum./( kv._2.length ),  kv._2 ) )
-  }
 
   //Se obtiene el centroide mas cercano y su distancia de forma recursiva
   def getMinDistance(arr : Array[Float], n : Integer, x : Float) :
