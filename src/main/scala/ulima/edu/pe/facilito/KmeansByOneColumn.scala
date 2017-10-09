@@ -62,7 +62,7 @@ object KmeansByOneColumn {
     checkAvg( initRDD, dataAvgArray.toArray ).map( myTuple => {
         var cad = StringBuilder.newBuilder
         cad.append( myTuple._1.toString )
-        myTuple._2.foreach( value => cad.append( "," ).append( value.toString ) )
+        cad.append( myTuple._2.mkString( "," ) )
         cad
       } )
       .saveAsTextFile("data/resultado1/")
@@ -91,15 +91,16 @@ object KmeansByOneColumn {
     valores del Array de centroides, se sigue iterando
     */
     if( matchesCount.length != dataAvgArray.length ) {
-      var rddReAssign = assign( rdd )
-      var newCentroids = rddReAssign.map( x => x._1 ).collect()
-      checkAvg( rddReAssign, newCentroids )
+      var rddAssign = assign( rdd )
+      var previousCentroids = rdd
+        .map( x => x._1 ).collect()
+      checkAvg( rddAssign, previousCentroids )
     } else {
       rdd
     }
   }
 
-  //Se asigna
+  //Se reasigna
   def assign(rdd : RDD[Tuple2[Float, List[Float]]])
   : RDD[Tuple2[Float, List[Float]]] = {
     // Se obtiene los centroides previos como un Array

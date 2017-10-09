@@ -25,21 +25,23 @@ object KmeansByAllColumns {
     dividido por el numero de centroides
     */
     val section = datasetList.length./( centroidNumber )
-    for( i <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
+    for( i <- 0 to datasetList.length.-( 1 ).-( section ) by section ) {
       //Arreglo con las dimensiones de un centroide
       var dataAvgSingleList = ListBuffer[Double]()
-      //Ordenar datasetList por columna
-      var datasetSingleListSorted = datasetRDD
-      .map( x => x( i ) )
-      .sortBy( x => x, ascending = true )
-      .collect()
-      /*
-      A los centroides se les asigna el punto de quiebre
-      entre seccion y seccion
-      */
-      for( i <- 0 to datasetSingleListSorted.length.-( 1 ).-( section ) by section )
+      for( j <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
+        //Ordenar datasetList por columna
+        var datasetSingleListSorted = datasetRDD
+        .map( x => x( j ) )
+        .sortBy( x => x, ascending = true )
+        .collect()
+        /*
+        A los centroides se les asigna el punto de quiebre
+        entre seccion y seccion
+        */
         dataAvgSingleList
-        .append( datasetSingleListSorted( i.+( section./( 2 ) ) ) )
+        .append( BigDecimal( datasetSingleListSorted( i.+( section./( 2 ) ) ) )
+        .setScale( 2, BigDecimal.RoundingMode.HALF_UP ).toDouble )
+      }
       //Agregar arreglo dimensional al arreglo de centroides
       dataAvgList.append( dataAvgSingleList.toList )
     }
@@ -57,13 +59,6 @@ object KmeansByAllColumns {
     .groupByKey
     //Se mapea los valores pertenientes al centroide como lista
     .mapValues( _.toList )
-    .map( kv => {
-      println( "KEEEEEEEEEEEEEEEEEEEEEEEEEY" + kv._1 )
-      val strArray = kv._1.split( "," )
-      var centroide = ListBuffer[Double]()
-      strArray.foreach( str => centroide.append( str.toDouble ) )
-      ( centroide.toList, kv._2 )
-    })
     /*
     Se crean nuevos centroides:
     (centroide, valuesList) =>
@@ -74,27 +69,26 @@ object KmeansByAllColumns {
       for( i <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
         var sum = 0.0
         kv._2.foreach( x => sum += x( i ) )
-        newCentroid.append( sum./( kv._2.length ) )
+        newCentroid.append( BigDecimal( sum./( kv._2.length ) )
+        .setScale( 2, BigDecimal.RoundingMode.HALF_UP ).toDouble )
       }
       ( newCentroid.toList,  kv._2 )
     } )
-    println("Lmaoooooooooooo" + initRDD.count().toString)
     /*
     Se chequea si los valores de los centroides
     son los mismos que de la iteracion anterior, si son iguales, se mapea
     a cadena de texto y se exporta
     */
-    val checkRDD = checkAvg( initRDD, dataAvgList.toList ).map( myTuple => {
+    checkAvg( initRDD, dataAvgList.toList ).map( myTuple => {
         var cad = StringBuilder.newBuilder
-        cad.append( myTuple._1.mkString( "(", ",", ")") )
+        cad.append( myTuple._1.mkString( "\"(", ",", ")\"") )
         myTuple._2.foreach( valueList => {
             cad.append( "," )
-            cad.append( valueList.mkString( "(", ",", ")") )
+            cad.append( valueList.mkString( "\"(", ",", ")\"") )
         } )
         cad
       } )
-    println("LOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOL" + checkRDD.count().toString)
-    //checkRDD.saveAsTextFile("data/resultado2/")
+     .saveAsTextFile("data/resultado2/")
   }
   /*
   Se chequea si los valores de los centroides
@@ -106,21 +100,23 @@ object KmeansByAllColumns {
     /*
     Se verifica que los centroides anteriores con los nuevos sean iguales
     */
-    val isEqual = true
+    var isEqual = true
     val keySet = rdd.map( x => x._1 ).collect()
     for( i <- 0 to keySet.length.-( 1 ) )
-      keySet( i ) == dataAvgList( i ) && isEqual
+      isEqual = keySet( i ).sameElements( dataAvgList( i ) ) && isEqual
+
+
 
     if( !isEqual ) {
-      val rddReAssign = assign( rdd )
-      val newCentroids = rddReAssign.map( x => x._1 ).collect().toList
-      checkAvg( rddReAssign, newCentroids )
+      var rddAssign = assign( rdd )
+      var previousCentroids = rdd.map( x => x._1 ).collect().toList
+      checkAvg( rddAssign, previousCentroids )
     } else {
       rdd
     }
   }
 
-  //Se asigna
+  //Se reasigna
   def assign(rdd : RDD[Tuple2[List[Double], List[List[Double]]]])
   : RDD[Tuple2[List[Double], List[List[Double]]]] = {
     // Se obtiene los centroides previos como un List[List[Double]]
@@ -146,12 +142,12 @@ object KmeansByAllColumns {
     .groupByKey
     //Se mapea los valores pertenientes al centroide como lista
     .mapValues( _.toList )
-    .map( kv => {
-          val strArray = kv._1.split( "," )
-          var centroide = ListBuffer[Double]()
-          strArray.foreach( str => centroide.append( str.toDouble ) )
-          ( centroide.toList, kv._2 )
-    })
+    /*.map( kv => {
+      val strArray = kv._1.split( "," )
+      var centroide = ListBuffer[Double]()
+      strArray.foreach( str => centroide.append( str.toDouble ) )
+      ( centroide.toList, kv._2 )
+    })*/
     /*
     Se crean nuevos centroides:
     (centroide, valuesList) =>
@@ -162,7 +158,8 @@ object KmeansByAllColumns {
       for( i <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
         var sum = 0.0
         kv._2.foreach( x => sum += x( i ) )
-        newCentroid.append( sum./( kv._2.length ) )
+        newCentroid.append( BigDecimal( sum./( kv._2.length ) )
+        .setScale( 2, BigDecimal.RoundingMode.HALF_UP ).toDouble )
       }
       ( newCentroid.toList,  kv._2 )
     } )
@@ -173,20 +170,19 @@ object KmeansByAllColumns {
     x : List[Double]) : Tuple2[List[Double], Double] = {
     if( n > 0 ) {
       /*
-      Valor de la tuple2[Double, Double] de la
+      Valor de la Tuple2[List[Double], Double] de la
       distancia mínima de la posicion anterior del List
       */
       val previousDistance = getMinDistance( list, n - 1 , x)
       /*
-      Valor absoluto de la distancia al centroide
+      Valor de la distancia al centroide
       del List en la posicion n
       */
       val currentDistance = getEuclidanDistance( list( n ), x )
       /*
       Si la distancia anterior es menor, se retorna
       ( valor del centroide de la posicion anterior del List,
-      distancia al centroide de la posicion anterior del List
-      en valor absoluto )
+      distancia al centroide de la posicion anterior del List )
       */
       if( previousDistance._2 < currentDistance ) {
         ( previousDistance._1, previousDistance._2 )
@@ -194,21 +190,20 @@ object KmeansByAllColumns {
         /*
         Si la distancia actual es menor, se retorna
         ( valor del centroide de la posicion actual del List,
-        distancia al centroide de la posicion actual del List
-        en valor absoluto )
+        distancia al centroide de la posicion actual del List )
         */
         ( list( n ), currentDistance )
       }
     } else {
         /*
         Se retorna (valor del centroide de la posicion 0,
-        distancia al centroide de la posicion 0 del List
-        en valor absoluto )
+        distancia al centroide de la posicion 0 del List )
         */
         ( list( 0 ), getEuclidanDistance( list( 0 ), x ) )
     }
   }
 
+  //Obtener la distancia euclidiana
   def getEuclidanDistance(list : List[Double], x : List[Double]) : Double = {
     var qrtSum = 0.0
     for( i <- 0 to list.length.-( 1 ) )
