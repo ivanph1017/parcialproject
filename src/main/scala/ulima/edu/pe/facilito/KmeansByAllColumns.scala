@@ -14,7 +14,7 @@ object KmeansByAllColumns {
 
   //Procesar algoritmo K-means
   def processKmeans(centroidNumber: Integer) {
-    //Arreglo con los valores de los centroides
+    //Lista con los valores de los centroides
     val dataAvgList = ListBuffer[List[Double]]()
     //Dataset completo como RDD
     val datasetRDD = GetDataset.getAllDataset()
@@ -26,7 +26,7 @@ object KmeansByAllColumns {
     */
     val section = datasetList.length./( centroidNumber )
     for( i <- 0 to datasetList.length.-( 1 ).-( section ) by section ) {
-      //Arreglo con las dimensiones de un centroide
+      //Lista con las dimensiones de un centroide
       var dataAvgSingleList = ListBuffer[Double]()
       for( j <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
         //Ordenar datasetList por columna
@@ -39,10 +39,9 @@ object KmeansByAllColumns {
         entre seccion y seccion
         */
         dataAvgSingleList
-        .append( BigDecimal( datasetSingleListSorted( i.+( section./( 2 ) ) ) )
-        .setScale( 2, BigDecimal.RoundingMode.HALF_UP ).toDouble )
+        .append( datasetSingleListSorted( i.+( section./( 2 ) ) ) )
       }
-      //Agregar arreglo dimensional al arreglo de centroides
+      //Agregar Lista dimensional al lista de centroides
       dataAvgList.append( dataAvgSingleList.toList )
     }
     /*
@@ -69,8 +68,7 @@ object KmeansByAllColumns {
       for( i <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
         var sum = 0.0
         kv._2.foreach( x => sum += x( i ) )
-        newCentroid.append( BigDecimal( sum./( kv._2.length ) )
-        .setScale( 2, BigDecimal.RoundingMode.HALF_UP ).toDouble )
+        newCentroid.append( sum./( kv._2.length ) )
       }
       ( newCentroid.toList,  kv._2 )
     } )
@@ -104,8 +102,6 @@ object KmeansByAllColumns {
     val keySet = rdd.map( x => x._1 ).collect()
     for( i <- 0 to keySet.length.-( 1 ) )
       isEqual = keySet( i ).sameElements( dataAvgList( i ) ) && isEqual
-
-
 
     if( !isEqual ) {
       var rddAssign = assign( rdd )
@@ -142,12 +138,6 @@ object KmeansByAllColumns {
     .groupByKey
     //Se mapea los valores pertenientes al centroide como lista
     .mapValues( _.toList )
-    /*.map( kv => {
-      val strArray = kv._1.split( "," )
-      var centroide = ListBuffer[Double]()
-      strArray.foreach( str => centroide.append( str.toDouble ) )
-      ( centroide.toList, kv._2 )
-    })*/
     /*
     Se crean nuevos centroides:
     (centroide, valuesList) =>
@@ -158,8 +148,7 @@ object KmeansByAllColumns {
       for( i <- 0 to GetDataset.getColumnsNumber().-( 1 ) ) {
         var sum = 0.0
         kv._2.foreach( x => sum += x( i ) )
-        newCentroid.append( BigDecimal( sum./( kv._2.length ) )
-        .setScale( 2, BigDecimal.RoundingMode.HALF_UP ).toDouble )
+        newCentroid.append( sum./( kv._2.length ) )
       }
       ( newCentroid.toList,  kv._2 )
     } )
@@ -207,7 +196,9 @@ object KmeansByAllColumns {
   def getEuclidanDistance(list : List[Double], x : List[Double]) : Double = {
     var qrtSum = 0.0
     for( i <- 0 to list.length.-( 1 ) )
+     //suma de cuadrados
      qrtSum += pow( list( i ).-( x( i ) ), 2 )
+    // raiz cuadrada de suma de cuadrados
     sqrt( qrtSum )
   }
 }
