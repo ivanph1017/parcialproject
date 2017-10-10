@@ -34,7 +34,7 @@ object KmeansByOneColumn {
       datasetArraySorted, datasetArray.length.-( section ), section )
 
     //Se crean nuevos centroides
-    var initRDD = createNewCentroids( mapToCentroid( datasetRDD,
+    var initRDD = reduceToCentroid( mapToCentroid( datasetRDD,
       dataAvgArray.toArray ) )
 
     /*
@@ -101,7 +101,7 @@ object KmeansByOneColumn {
     valores del Array de centroides, se sigue iterando
     */
     if( matchesCount.length != dataAvgArray.length ) {
-      var newRDD = createNewCentroids( reMapToCentroid( rdd ) )
+      var newRDD = reduceToCentroid( reMapToCentroid( rdd ) )
       var previousCentroids = rdd
         .map( x => x._1 ).collect()
       checkAvg( newRDD, previousCentroids )
@@ -118,6 +118,7 @@ object KmeansByOneColumn {
   : RDD[Tuple2[Float, Float]] = {
     // Se obtiene los centroides previos como un Array
     var previousCentroids = rdd.map( x => x._1 ).collect()
+
     /*
     Se hace flatMapping de cada elemento ( myTuple ) =>
     ( valor del centroide al que pertenece,
@@ -125,6 +126,7 @@ object KmeansByOneColumn {
     */
     rdd.flatMap( myTuple =>
       for (value <- myTuple._2) yield ( myTuple._1, value ) )
+
     /*
     Se mapea cada elemento ( x ) => ( valor del nuevo centroide al
     cual pertenece, valor x )
@@ -136,14 +138,19 @@ object KmeansByOneColumn {
     })
   }
 
-  //Se agrupa
-  def createNewCentroids( rdd : RDD[Tuple2[Float, Float]] ) :
-  RDD[Tuple2[Float, List[Float]]] =
+  /*
+  Se agrupa por centroide y
+  se reduce (k, v1), (k, v2)... => (k, List(v1, v2...))
+  */
+  def reduceToCentroid(rdd : RDD[Tuple2[Float, Float]])
+  : RDD[Tuple2[Float, List[Float]]] =
     rdd
-    //Se agrupa por los valor del centroide
+    //Se agrupa por centroide
     .groupByKey
+
     //Se mapea los valores pertenientes al centroide como lista
     .mapValues( _.toList )
+
     /*
     Se crean nuevos centroides:
     (centroide, valuesList) =>
@@ -160,11 +167,13 @@ object KmeansByOneColumn {
       distancia mínima de la posicion anterior del Array
       */
       var previousDistance = getMinDistance( arr, n - 1 , x)
+
       /*
       valor absoluto de la distancia al centroide
       del Array en la posicion n
       */
       var currentDistance = abs( x.-( arr( n ) ) )
+
       /*
       Si la distancia anterior es menor, se retorna
       ( valor del centroide de la posicion anterior del Array,
