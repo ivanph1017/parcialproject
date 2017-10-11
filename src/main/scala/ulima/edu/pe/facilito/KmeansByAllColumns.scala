@@ -20,7 +20,7 @@ object KmeansByAllColumns {
     //Dataset completo como RDD
     val datasetRDD = GetDataset.getAllDataset()
 
-    //Dataset de 1 dimension como List
+    //Dataset de todas las dimensiones como List
     val datasetList = datasetRDD.collect()
 
     /*
